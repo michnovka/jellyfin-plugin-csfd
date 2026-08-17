@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "af0c9c45-a8e5-498a-b848-3963aade7e6e",
+    "name": "ČSFD Rating",
+    "description": "Fetches movie ratings from ČSFD and stores them in the native critic rating field.",
+    "overview": "ČSFD ratings as native critic rating",
+    "owner": "michnovka",
+    "category": "Metadata",
+    "imageUrl": "",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Initial release: ČSFD ratings as native critic rating for movies, Anubis PoW support, ČSFD external links",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/michnovka/jellyfin-plugin-csfd/releases/download/v0.1.0.0/csfd-rating_0.1.0.0.zip",
+        "checksum": "046826853f70cef6f1587fc671744159",
+        "timestamp": "2026-08-17T20:25:10Z"
+      }
+    ]
+  }
+]
