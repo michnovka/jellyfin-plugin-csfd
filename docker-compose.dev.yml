@@ -1,0 +1,12 @@
+services:
+  jellyfin:
+    # Pinned to the same version as production (supertower).
+    image: jellyfin/jellyfin:10.11.11
+    container_name: jellyfin-csfd-dev
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./dev/config:/config
+      - ./dev/cache:/cache
+      - ./dev/media:/media:ro
+    restart: unless-stopped

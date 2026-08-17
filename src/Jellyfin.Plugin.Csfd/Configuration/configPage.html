@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ČSFD Rating</title>
+</head>
+<body>
+    <div id="CsfdConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="CsfdConfigForm">
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="SetCriticRating" type="checkbox" is="emby-checkbox" />
+                            <span>Write ČSFD rating into critic rating</span>
+                        </label>
+                        <div class="fieldDescription">The ČSFD percentage is stored in the native critic-rating field, shown by all Jellyfin clients.</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="OverwriteExistingCriticRating" type="checkbox" is="emby-checkbox" />
+                            <span>Overwrite critic ratings from other providers</span>
+                        </label>
+                        <div class="fieldDescription">If disabled, movies that already have a critic rating (e.g. from OMDb) are left untouched.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="RequestDelayMs">Request delay (ms)</label>
+                        <input id="RequestDelayMs" type="number" is="emby-input" min="500" max="30000" />
+                        <div class="fieldDescription">Minimum delay between requests to csfd.cz. Be polite; don't lower this without a reason.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="RefreshIntervalDays">Refresh interval (days)</label>
+                        <input id="RefreshIntervalDays" type="number" is="emby-input" min="1" max="365" />
+                        <div class="fieldDescription">How often the scheduled task considers a stored rating stale.</div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var CsfdConfig = {
+                pluginUniqueId: 'af0c9c45-a8e5-498a-b848-3963aade7e6e'
+            };
+
+            document.querySelector('#CsfdConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(CsfdConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#SetCriticRating').checked = config.SetCriticRating;
+                        document.querySelector('#OverwriteExistingCriticRating').checked = config.OverwriteExistingCriticRating;
+                        document.querySelector('#RequestDelayMs').value = config.RequestDelayMs;
+                        document.querySelector('#RefreshIntervalDays').value = config.RefreshIntervalDays;
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#CsfdConfigForm')
+                .addEventListener('submit', function (e) {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(CsfdConfig.pluginUniqueId).then(function (config) {
+                        config.SetCriticRating = document.querySelector('#SetCriticRating').checked;
+                        config.OverwriteExistingCriticRating = document.querySelector('#OverwriteExistingCriticRating').checked;
+                        config.RequestDelayMs = parseInt(document.querySelector('#RequestDelayMs').value, 10);
+                        config.RefreshIntervalDays = parseInt(document.querySelector('#RefreshIntervalDays').value, 10);
+                        ApiClient.updatePluginConfiguration(CsfdConfig.pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+
+                    e.preventDefault();
+                    return false;
+                });
+        </script>
+    </div>
+</body>
+</html>
