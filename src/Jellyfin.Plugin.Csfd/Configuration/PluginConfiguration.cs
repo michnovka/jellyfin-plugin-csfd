@@ -12,7 +12,4 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Minimum delay between requests to csfd.cz, in milliseconds.</summary>
     public int RequestDelayMs { get; set; } = 1500;
-
-    /// <summary>The scheduled task refreshes ratings older than this many days.</summary>
-    public int RefreshIntervalDays { get; set; } = 30;
 }

@@ -17,39 +17,32 @@ public static class CsfdMatcher
             .ToList();
 
         CsfdSearchResult? best = null;
-        var bestScore = 0;
+        var bestScore = -1;
 
         foreach (var candidate in candidates.Where(c => c.IsFilm))
         {
-            var score = 0;
+            // Title match (Czech title or ČSFD's original name) is mandatory;
+            // a year match alone is not evidence enough.
             var titleMatches = normalizedTitles.Contains(Normalize(candidate.Title))
                 || (candidate.OriginalName is not null && normalizedTitles.Contains(Normalize(candidate.OriginalName)));
-            if (titleMatches)
+            if (!titleMatches)
             {
-                score += 2;
+                continue;
             }
 
+            var score = 1;
             if (year.HasValue && candidate.Year.HasValue)
             {
                 var diff = Math.Abs(year.Value - candidate.Year.Value);
-                if (diff == 0)
+                if (diff > 1)
                 {
-                    score += 2;
+                    continue; // same title, wrong year (remakes) is disqualifying
                 }
-                else if (diff == 1)
-                {
-                    score += 1;
-                }
-                else
-                {
-                    continue; // wrong year is disqualifying
-                }
+
+                score += diff == 0 ? 2 : 1;
             }
 
-            // Require at least title match, or exact year when the title differs
-            // (e.g. localized Jellyfin name vs. ČSFD Czech name).
-            var threshold = year.HasValue ? 2 : 2;
-            if (score >= threshold && score > bestScore)
+            if (score > bestScore)
             {
                 best = candidate;
                 bestScore = score;
