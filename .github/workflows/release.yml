@@ -42,8 +42,9 @@ jobs:
       - name: Commit manifest to main
         run: |
           cp manifest.json /tmp/manifest.json
+          # Tag checkouts have no local main; create it from the fetched ref.
           git fetch origin main
-          git switch -f main
+          git switch -C main FETCH_HEAD
           cp /tmp/manifest.json manifest.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
