@@ -25,9 +25,12 @@ the ČSFD look in the web client instead, add Custom CSS in Dashboard → Genera
 ```css
 .mediaInfoCriticRatingFresh,
 .mediaInfoCriticRatingRotten {
-    background-image: url('https://static.pmgstatic.com/assets/images/60b418342f47054c7481ad9e0c8e40b4/apple-touch-icon.png');
+    background-image: url('https://static.pmgstatic.com/assets/images/c81c12476e7c622b1c771cd9187a56e2/apple-touch-icon.png');
 }
 ```
+
+More robust: download that PNG and embed it as a `data:image/png;base64,...`
+URI so the icon doesn't depend on hotlinking csfd.cz's CDN.
 
 ## Development
 
