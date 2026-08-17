@@ -18,12 +18,14 @@ public class CsfdRefreshTask : IScheduledTask
 {
     private readonly ILibraryManager _libraryManager;
     private readonly CsfdClient _client;
+    private readonly CsfdResolver _resolver;
     private readonly ILogger<CsfdRefreshTask> _logger;
 
-    public CsfdRefreshTask(ILibraryManager libraryManager, CsfdClient client, ILogger<CsfdRefreshTask> logger)
+    public CsfdRefreshTask(ILibraryManager libraryManager, CsfdClient client, CsfdResolver resolver, ILogger<CsfdRefreshTask> logger)
     {
         _libraryManager = libraryManager;
         _client = client;
+        _resolver = resolver;
         _logger = logger;
     }
 
@@ -65,7 +67,7 @@ public class CsfdRefreshTask : IScheduledTask
             if (string.IsNullOrEmpty(csfdId)
                 && (config.OverwriteExistingCriticRating || !movie.CriticRating.HasValue))
             {
-                csfdId = await ResolveAsync(movie, cancellationToken).ConfigureAwait(false);
+                csfdId = await _resolver.ResolveAsync(movie.Name, movie.OriginalTitle, movie.ProductionYear, cancellationToken).ConfigureAwait(false);
                 if (csfdId is not null)
                 {
                     movie.SetProviderId("Csfd", csfdId);
@@ -94,26 +96,5 @@ public class CsfdRefreshTask : IScheduledTask
         }
 
         _logger.LogInformation("ČSFD refresh finished: {Updated} of {Count} movies updated", updated, movies.Count);
-    }
-
-    private async Task<string?> ResolveAsync(Movie movie, CancellationToken cancellationToken)
-    {
-        var titles = new[] { movie.Name, movie.OriginalTitle }
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Select(t => t!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var query in titles)
-        {
-            var results = await _client.SearchAsync(query, cancellationToken).ConfigureAwait(false);
-            var match = CsfdMatcher.FindBestMatch(results, titles, movie.ProductionYear);
-            if (match is not null)
-            {
-                return match.Id;
-            }
-        }
-
-        return null;
     }
 }

@@ -120,6 +120,8 @@ public class CsfdMatcherTests
     [InlineData("The Shawshank Redemption", "the shawshank redemption")]
     [InlineData("Vesničko má, středisková!", "vesnicko ma strediskova")]
     [InlineData("  Samotáři  ", "samotari")]
+    [InlineData("The Accountant²", "the accountant 2")]
+    [InlineData("Naked Gun 33⅓: The Final Insult", "naked gun 33 1 3 the final insult")]
     public void Normalize_Strips_Diacritics_And_Punctuation(string input, string expected)
     {
         Assert.Equal(expected, CsfdMatcher.Normalize(input));

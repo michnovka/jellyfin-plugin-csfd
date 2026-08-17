@@ -15,11 +15,13 @@ namespace Jellyfin.Plugin.Csfd.Providers;
 public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
 {
     private readonly CsfdClient _client;
+    private readonly CsfdResolver _resolver;
     private readonly ILogger<CsfdMovieProvider> _logger;
 
-    public CsfdMovieProvider(CsfdClient client, ILogger<CsfdMovieProvider> logger)
+    public CsfdMovieProvider(CsfdClient client, CsfdResolver resolver, ILogger<CsfdMovieProvider> logger)
     {
         _client = client;
+        _resolver = resolver;
         _logger = logger;
     }
 
@@ -47,7 +49,7 @@ public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
                 return ItemUpdateType.None;
             }
 
-            csfdId = await ResolveCsfdIdAsync(item, cancellationToken).ConfigureAwait(false);
+            csfdId = await _resolver.ResolveAsync(item.Name, item.OriginalTitle, item.ProductionYear, cancellationToken).ConfigureAwait(false);
             if (csfdId is null)
             {
                 return ItemUpdateType.None;
@@ -66,33 +68,5 @@ public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
         }
 
         return changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None;
-    }
-
-    private async Task<string?> ResolveCsfdIdAsync(Movie item, CancellationToken cancellationToken)
-    {
-        var titles = new List<string>();
-        if (!string.IsNullOrWhiteSpace(item.Name))
-        {
-            titles.Add(item.Name);
-        }
-
-        if (!string.IsNullOrWhiteSpace(item.OriginalTitle))
-        {
-            titles.Add(item.OriginalTitle);
-        }
-
-        foreach (var query in titles.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var results = await _client.SearchAsync(query, cancellationToken).ConfigureAwait(false);
-            var match = CsfdMatcher.FindBestMatch(results, titles, item.ProductionYear);
-            if (match is not null)
-            {
-                _logger.LogInformation("Matched {Name} ({Year}) to ČSFD {CsfdId}", item.Name, item.ProductionYear, match.Id);
-                return match.Id;
-            }
-        }
-
-        _logger.LogInformation("No ČSFD match for {Name} ({Year})", item.Name, item.ProductionYear);
-        return null;
     }
 }

@@ -10,5 +10,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<CsfdClient>();
+        serviceCollection.AddSingleton<CsfdResolver>();
     }
 }

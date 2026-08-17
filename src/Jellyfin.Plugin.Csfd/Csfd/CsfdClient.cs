@@ -8,6 +8,8 @@ public sealed record CsfdSearchResult(string Id, string Title, string? OriginalN
 
 public sealed record CsfdRatingResult(bool Success, int? Percent);
 
+public sealed record CsfdFilmNames(bool Success, IReadOnlyList<string> Names);
+
 /// <summary>
 /// Scraping client for csfd.cz. Owns a cookie jar so the Anubis anti-bot cookie
 /// survives between requests, and serializes all traffic through a rate limiter.
@@ -38,6 +40,17 @@ public sealed partial class CsfdClient : IDisposable
     // <div class="film-rating-average"> 95% </div>
     [GeneratedRegex(@"film-rating-average[^>]*>\s*(?<percent>\d{1,3})\s*%", RegexOptions.Singleline)]
     private static partial Regex RatingRegex();
+
+    // Czech title on the film page: <div class="film-header-name"> <h1> Title
+    [GeneratedRegex("""film-header-name">\s*<h1>\s*(?<title>[^<]+)""", RegexOptions.Singleline)]
+    private static partial Regex FilmHeaderRegex();
+
+    // Alternate names: <ul class="film-names"><li><img title="USA".../>Name ...
+    [GeneratedRegex("""<ul class="film-names">(?<block>.*?)</ul>""", RegexOptions.Singleline)]
+    private static partial Regex FilmNamesBlockRegex();
+
+    [GeneratedRegex("""<li[^>]*>\s*(?:<img[^>]*/?>)?\s*(?<name>[^<]+)""", RegexOptions.Singleline)]
+    private static partial Regex FilmNamesItemRegex();
 
     public CsfdClient(ILogger<CsfdClient> logger)
     {
@@ -112,6 +125,38 @@ public sealed partial class CsfdClient : IDisposable
 
         _logger.LogWarning("ČSFD page for {CsfdId} has unexpected structure", csfdId);
         return new CsfdRatingResult(false, null);
+    }
+
+    /// <summary>All names (Czech title + alternate/original names) listed on a film page.</summary>
+    public async Task<CsfdFilmNames> GetFilmNamesAsync(string csfdId, CancellationToken cancellationToken)
+    {
+        var html = await GetPageAsync($"{BaseUrl}/film/{csfdId}/prehled/", cancellationToken).ConfigureAwait(false);
+        if (html is null)
+        {
+            return new CsfdFilmNames(false, []);
+        }
+
+        var names = new List<string>();
+        var header = FilmHeaderRegex().Match(html);
+        if (header.Success)
+        {
+            names.Add(WebUtility.HtmlDecode(header.Groups["title"].Value).Trim());
+        }
+
+        var block = FilmNamesBlockRegex().Match(html);
+        if (block.Success)
+        {
+            foreach (Match item in FilmNamesItemRegex().Matches(block.Groups["block"].Value))
+            {
+                var value = WebUtility.HtmlDecode(item.Groups["name"].Value).Trim();
+                if (value.Length > 0)
+                {
+                    names.Add(value);
+                }
+            }
+        }
+
+        return new CsfdFilmNames(names.Count > 0, names);
     }
 
     private async Task<string?> GetPageAsync(string url, CancellationToken cancellationToken)

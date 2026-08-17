@@ -52,10 +52,27 @@ public static class CsfdMatcher
         return best;
     }
 
-    /// <summary>Lowercase, strip diacritics and punctuation, collapse whitespace.</summary>
+    /// <summary>Lowercase, strip diacritics and punctuation, collapse whitespace.
+    /// Uses compatibility decomposition so superscripts/fractions become plain digits
+    /// ("The Accountant²" → "the accountant 2").</summary>
     public static string Normalize(string value)
     {
-        var formD = value.Normalize(NormalizationForm.FormD);
+        // Pre-expand superscripts/vulgar fractions (², ⅓ …) with spaces so they
+        // become standalone digits ("33⅓" → "33 1 3", not "331 3").
+        var expanded = new StringBuilder(value.Length + 8);
+        foreach (var ch in value)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.OtherNumber)
+            {
+                expanded.Append(' ').Append(ch.ToString().Normalize(NormalizationForm.FormKD)).Append(' ');
+            }
+            else
+            {
+                expanded.Append(ch);
+            }
+        }
+
+        var formD = expanded.ToString().Normalize(NormalizationForm.FormKD);
         var sb = new StringBuilder(formD.Length);
         var lastWasSpace = true;
         foreach (var c in formD)
