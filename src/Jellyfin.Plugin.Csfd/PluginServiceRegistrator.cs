@@ -11,5 +11,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<CsfdClient>();
         serviceCollection.AddSingleton<CsfdResolver>();
+        serviceCollection.AddSingleton<CsfdStateStore>();
+        serviceCollection.AddSingleton<CsfdUpdater>();
     }
 }

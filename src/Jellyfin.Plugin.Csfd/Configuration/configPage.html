@@ -21,7 +21,17 @@
                             <input id="OverwriteExistingCriticRating" type="checkbox" is="emby-checkbox" />
                             <span>Overwrite critic ratings from other providers</span>
                         </label>
-                        <div class="fieldDescription">If disabled, movies that already have a critic rating (e.g. from OMDb) are left untouched.</div>
+                        <div class="fieldDescription">If disabled, items that already have a critic rating (e.g. from OMDb) are left untouched.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MinimumVotes">Minimum votes</label>
+                        <input id="MinimumVotes" type="number" is="emby-input" min="0" max="100000" />
+                        <div class="fieldDescription">Ignore ČSFD ratings based on fewer votes than this (unreliable on obscure titles).</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="RefreshIntervalDays">Refresh interval (days)</label>
+                        <input id="RefreshIntervalDays" type="number" is="emby-input" min="1" max="365" />
+                        <div class="fieldDescription">The scheduled task skips items whose rating was fetched within this many days.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="RequestDelayMs">Request delay (ms)</label>
@@ -34,6 +44,19 @@
                         </button>
                     </div>
                 </form>
+
+                <div class="verticalSection" style="margin-top: 2em;">
+                    <h2 class="sectionTitle">Unmatched items</h2>
+                    <div class="fieldDescription">
+                        Movies and series without a ČSFD id. Use the search link to find the right film,
+                        then paste its id (e.g. <code>4570-pelisky</code>) into the ČSFD field of the item's
+                        metadata editor and refresh its metadata.
+                    </div>
+                    <button is="emby-button" type="button" id="CsfdLoadUnmatched" class="raised block emby-button" style="margin: 1em 0;">
+                        <span>Load unmatched items</span>
+                    </button>
+                    <div id="CsfdUnmatchedResult"></div>
+                </div>
             </div>
         </div>
         <script type="text/javascript">
@@ -47,6 +70,8 @@
                     ApiClient.getPluginConfiguration(CsfdConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#SetCriticRating').checked = config.SetCriticRating;
                         document.querySelector('#OverwriteExistingCriticRating').checked = config.OverwriteExistingCriticRating;
+                        document.querySelector('#MinimumVotes').value = config.MinimumVotes;
+                        document.querySelector('#RefreshIntervalDays').value = config.RefreshIntervalDays;
                         document.querySelector('#RequestDelayMs').value = config.RequestDelayMs;
                         Dashboard.hideLoadingMsg();
                     });
@@ -58,6 +83,8 @@
                     ApiClient.getPluginConfiguration(CsfdConfig.pluginUniqueId).then(function (config) {
                         config.SetCriticRating = document.querySelector('#SetCriticRating').checked;
                         config.OverwriteExistingCriticRating = document.querySelector('#OverwriteExistingCriticRating').checked;
+                        config.MinimumVotes = parseInt(document.querySelector('#MinimumVotes').value, 10);
+                        config.RefreshIntervalDays = parseInt(document.querySelector('#RefreshIntervalDays').value, 10);
                         config.RequestDelayMs = parseInt(document.querySelector('#RequestDelayMs').value, 10);
                         ApiClient.updatePluginConfiguration(CsfdConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
@@ -66,6 +93,35 @@
 
                     e.preventDefault();
                     return false;
+                });
+
+            document.querySelector('#CsfdLoadUnmatched')
+                .addEventListener('click', function () {
+                    var target = document.querySelector('#CsfdUnmatchedResult');
+                    target.textContent = 'Loading…';
+                    ApiClient.getJSON(ApiClient.getUrl('Plugins/Csfd/Unmatched')).then(function (items) {
+                        if (!items.length) {
+                            target.textContent = 'Everything is matched. 🎉';
+                            return;
+                        }
+                        var rows = items.map(function (i) {
+                            var name = i.Name + (i.Year ? ' (' + i.Year + ')' : '');
+                            var detailsUrl = '#/details?id=' + i.Id + '&serverId=' + ApiClient.serverId();
+                            return '<tr>'
+                                + '<td style="padding: 0.3em 1em 0.3em 0;"><a is="emby-linkbutton" class="button-link" href="' + detailsUrl + '"></a></td>'
+                                + '<td style="padding: 0.3em 1em;">' + i.Type + '</td>'
+                                + '<td style="padding: 0.3em 0;"><a is="emby-linkbutton" class="button-link" href="' + i.CsfdSearchUrl + '" target="_blank" rel="noopener">Search ČSFD</a></td>'
+                                + '</tr>';
+                        });
+                        target.innerHTML = '<table style="border-collapse: collapse;"><tbody>' + rows.join('') + '</tbody></table>';
+                        // Set item names via textContent to avoid HTML injection from titles.
+                        target.querySelectorAll('tr').forEach(function (tr, idx) {
+                            var i = items[idx];
+                            tr.querySelector('a').textContent = i.Name + (i.Year ? ' (' + i.Year + ')' : '');
+                        });
+                    }, function () {
+                        target.textContent = 'Failed to load (admin permissions required).';
+                    });
                 });
         </script>
     </div>

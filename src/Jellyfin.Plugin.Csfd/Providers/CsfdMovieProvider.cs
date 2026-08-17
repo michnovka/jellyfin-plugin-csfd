@@ -2,8 +2,6 @@ using Jellyfin.Plugin.Csfd.Csfd;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
-using MediaBrowser.Model.Entities;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Csfd.Providers;
 
@@ -14,15 +12,11 @@ namespace Jellyfin.Plugin.Csfd.Providers;
 /// </summary>
 public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
 {
-    private readonly CsfdClient _client;
-    private readonly CsfdResolver _resolver;
-    private readonly ILogger<CsfdMovieProvider> _logger;
+    private readonly CsfdUpdater _updater;
 
-    public CsfdMovieProvider(CsfdClient client, CsfdResolver resolver, ILogger<CsfdMovieProvider> logger)
+    public CsfdMovieProvider(CsfdUpdater updater)
     {
-        _client = client;
-        _resolver = resolver;
-        _logger = logger;
+        _updater = updater;
     }
 
     public string Name => "ČSFD Rating";
@@ -38,35 +32,7 @@ public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
             return ItemUpdateType.None;
         }
 
-        var changed = false;
-        var csfdId = item.GetProviderId("Csfd");
-        var hadCsfdId = !string.IsNullOrEmpty(csfdId);
-        if (!hadCsfdId)
-        {
-            // A rating set by someone else and overwriting disabled: leave the item alone.
-            if (!config.OverwriteExistingCriticRating && item.CriticRating.HasValue)
-            {
-                return ItemUpdateType.None;
-            }
-
-            csfdId = await _resolver.ResolveAsync(item.Name, item.OriginalTitle, item.ProductionYear, cancellationToken).ConfigureAwait(false);
-            if (csfdId is null)
-            {
-                return ItemUpdateType.None;
-            }
-
-            item.SetProviderId("Csfd", csfdId);
-            changed = true;
-        }
-
-        var rating = await _client.GetRatingPercentAsync(csfdId!, cancellationToken).ConfigureAwait(false);
-        if (rating.Success && rating.Percent.HasValue && item.CriticRating != rating.Percent.Value)
-        {
-            _logger.LogInformation("ČSFD rating for {Name}: {Percent}%", item.Name, rating.Percent.Value);
-            item.CriticRating = rating.Percent.Value;
-            changed = true;
-        }
-
-        return changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None;
+        var result = await _updater.UpdateItemAsync(item, series: false, config, recordStateImmediately: true, cancellationToken).ConfigureAwait(false);
+        return result.Changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None;
     }
 }

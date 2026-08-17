@@ -4,33 +4,39 @@ using System.Text;
 namespace Jellyfin.Plugin.Csfd.Csfd;
 
 /// <summary>
-/// Picks the best ČSFD search result for a movie title + production year.
+/// Picks the best ČSFD search result for a title + production year.
 /// </summary>
 public static class CsfdMatcher
 {
-    public static CsfdSearchResult? FindBestMatch(IReadOnlyList<CsfdSearchResult> candidates, IEnumerable<string> titles, int? year)
+    private static readonly HashSet<string> Stopwords = ["the", "a", "an", "and"];
+
+    public static CsfdSearchResult? FindBestMatch(IReadOnlyList<CsfdSearchResult> candidates, IEnumerable<string> titles, int? year, bool series = false)
     {
-        var normalizedTitles = titles
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Select(Normalize)
-            .Distinct()
-            .ToList();
+        var titleList = titles.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        var exactTitles = titleList.Select(Normalize).Distinct().ToList();
+        var looseTitles = titleList.Select(NormalizeAggressive).Distinct().ToList();
 
         CsfdSearchResult? best = null;
         var bestScore = -1;
 
-        foreach (var candidate in candidates.Where(c => c.IsFilm))
+        foreach (var candidate in candidates.Where(c => series ? c.IsSeries : c.IsFilm))
         {
-            // Title match (Czech title or ČSFD's original name) is mandatory;
-            // a year match alone is not evidence enough.
-            var titleMatches = normalizedTitles.Contains(Normalize(candidate.Title))
-                || (candidate.OriginalName is not null && normalizedTitles.Contains(Normalize(candidate.OriginalName)));
-            if (!titleMatches)
+            var candidateNames = new[] { candidate.Title, candidate.OriginalName }
+                .Where(n => !string.IsNullOrEmpty(n))
+                .Select(n => n!)
+                .ToList();
+
+            // Title match is mandatory; a year match alone is not evidence enough.
+            // An exact-normalized match strongly outranks the article/conjunction-
+            // tolerant one, so "The Father" (2020) beats "Father" (2020).
+            var exact = candidateNames.Any(n => exactTitles.Contains(Normalize(n)));
+            var loose = exact || candidateNames.Any(n => looseTitles.Contains(NormalizeAggressive(n)));
+            if (!loose)
             {
                 continue;
             }
 
-            var score = 1;
+            var score = exact ? 4 : 1;
             if (year.HasValue && candidate.Year.HasValue)
             {
                 var diff = Math.Abs(year.Value - candidate.Year.Value);
@@ -53,16 +59,28 @@ public static class CsfdMatcher
     }
 
     /// <summary>Lowercase, strip diacritics and punctuation, collapse whitespace.
-    /// Uses compatibility decomposition so superscripts/fractions become plain digits
-    /// ("The Accountant²" → "the accountant 2").</summary>
-    public static string Normalize(string value)
+    /// "&amp;" becomes the word "and"; compatibility decomposition turns
+    /// superscripts/fractions into plain digits ("The Accountant²" → "the accountant 2").</summary>
+    public static string Normalize(string value) => NormalizeCore(value, dropStopwords: false);
+
+    /// <summary>Like <see cref="Normalize"/> but additionally drops article/conjunction
+    /// stopwords, absorbing "The"/"A"/"and" differences. Lossy — use only where a
+    /// year gate or page verification constrains the candidates.</summary>
+    public static string NormalizeAggressive(string value) => NormalizeCore(value, dropStopwords: true);
+
+    private static string NormalizeCore(string value, bool dropStopwords)
     {
         // Pre-expand superscripts/vulgar fractions (², ⅓ …) with spaces so they
-        // become standalone digits ("33⅓" → "33 1 3", not "331 3").
+        // become standalone digits ("33⅓" → "33 1 3", not "331 3"), and treat
+        // "&" as the word "and".
         var expanded = new StringBuilder(value.Length + 8);
         foreach (var ch in value)
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.OtherNumber)
+            if (ch == '&')
+            {
+                expanded.Append(" and ");
+            }
+            else if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.OtherNumber)
             {
                 expanded.Append(' ').Append(ch.ToString().Normalize(NormalizationForm.FormKD)).Append(' ');
             }
@@ -95,6 +113,8 @@ public static class CsfdMatcher
             }
         }
 
-        return sb.ToString().Trim();
+        var words = sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => !dropStopwords || !Stopwords.Contains(w));
+        return string.Join(' ', words);
     }
 }

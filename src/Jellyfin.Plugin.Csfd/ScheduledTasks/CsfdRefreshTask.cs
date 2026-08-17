@@ -1,7 +1,7 @@
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.Csfd.Csfd;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Tasks;
@@ -10,22 +10,23 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Csfd.ScheduledTasks;
 
 /// <summary>
-/// Walks the whole movie library: resolves missing ČSFD ids and refreshes
-/// CriticRating from ČSFD. This is the backfill path for libraries that
+/// Walks the movie and series library: resolves missing ČSFD ids and refreshes
+/// CriticRating from ČSFD. Items refreshed within the configured interval are
+/// skipped, so reruns are cheap. This is the backfill path for libraries that
 /// existed before the plugin was installed, and keeps ratings current.
 /// </summary>
 public class CsfdRefreshTask : IScheduledTask
 {
     private readonly ILibraryManager _libraryManager;
-    private readonly CsfdClient _client;
-    private readonly CsfdResolver _resolver;
+    private readonly CsfdUpdater _updater;
+    private readonly CsfdStateStore _stateStore;
     private readonly ILogger<CsfdRefreshTask> _logger;
 
-    public CsfdRefreshTask(ILibraryManager libraryManager, CsfdClient client, CsfdResolver resolver, ILogger<CsfdRefreshTask> logger)
+    public CsfdRefreshTask(ILibraryManager libraryManager, CsfdUpdater updater, CsfdStateStore stateStore, ILogger<CsfdRefreshTask> logger)
     {
         _libraryManager = libraryManager;
-        _client = client;
-        _resolver = resolver;
+        _updater = updater;
+        _stateStore = stateStore;
         _logger = logger;
     }
 
@@ -33,11 +34,18 @@ public class CsfdRefreshTask : IScheduledTask
 
     public string Key => "CsfdRefreshRatings";
 
-    public string Description => "Fetches ČSFD ratings for all movies and stores them as critic rating.";
+    public string Description => "Fetches ČSFD ratings for movies and series and stores them as critic rating.";
 
     public string Category => "ČSFD Rating";
 
-    public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() => [];
+    public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() =>
+    [
+        new TaskTriggerInfo
+        {
+            Type = TaskTriggerInfoType.IntervalTrigger,
+            IntervalTicks = TimeSpan.FromDays(30).Ticks,
+        },
+    ];
 
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
@@ -47,54 +55,70 @@ public class CsfdRefreshTask : IScheduledTask
             return;
         }
 
-        var movies = _libraryManager.GetItemList(new InternalItemsQuery
+        var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
-            IncludeItemTypes = [BaseItemKind.Movie],
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series],
             IsVirtualItem = false,
             Recursive = true,
-        }).OfType<Movie>().ToList();
+        });
 
-        _logger.LogInformation("ČSFD refresh: processing {Count} movies", movies.Count);
-
-        var processed = 0;
-        var updated = 0;
-        foreach (var movie in movies)
+        _logger.LogInformation("ČSFD refresh: processing {Count} movies and series", items.Count);
+        if (items.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var changed = false;
-            var csfdId = movie.GetProviderId("Csfd");
-            if (string.IsNullOrEmpty(csfdId)
-                && (config.OverwriteExistingCriticRating || !movie.CriticRating.HasValue))
-            {
-                csfdId = await _resolver.ResolveAsync(movie.Name, movie.OriginalTitle, movie.ProductionYear, cancellationToken).ConfigureAwait(false);
-                if (csfdId is not null)
-                {
-                    movie.SetProviderId("Csfd", csfdId);
-                    changed = true;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(csfdId))
-            {
-                var rating = await _client.GetRatingPercentAsync(csfdId, cancellationToken).ConfigureAwait(false);
-                if (rating.Success && rating.Percent.HasValue && movie.CriticRating != rating.Percent.Value)
-                {
-                    movie.CriticRating = rating.Percent.Value;
-                    changed = true;
-                }
-            }
-
-            if (changed)
-            {
-                await movie.UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
-                updated++;
-            }
-
-            processed++;
-            progress.Report(processed * 100.0 / movies.Count);
+            progress.Report(100);
+            return;
         }
 
-        _logger.LogInformation("ČSFD refresh finished: {Updated} of {Count} movies updated", updated, movies.Count);
+        var staleBefore = DateTimeOffset.UtcNow - TimeSpan.FromDays(Math.Clamp(config.RefreshIntervalDays, 1, 3650));
+        var processed = 0;
+        var updated = 0;
+        var skipped = 0;
+        try
+        {
+            foreach (var item in items)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                processed++;
+                try
+                {
+                    // Recently refreshed and already matched: nothing to do.
+                    if (!string.IsNullOrEmpty(item.GetProviderId("Csfd"))
+                        && _stateStore.GetFetchedAt(item.Id) is { } fetchedAt
+                        && fetchedAt > staleBefore)
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    var result = await _updater.UpdateItemAsync(item, item is Series, config, recordStateImmediately: false, cancellationToken).ConfigureAwait(false);
+                    if (result.Changed)
+                    {
+                        await item.UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
+                        updated++;
+                    }
+
+                    // Record freshness only once the item is safely persisted, so an
+                    // interrupted save is retried by the next run.
+                    if (result.RatingFetched)
+                    {
+                        _stateStore.SetFetchedAt(item.Id, DateTimeOffset.UtcNow);
+                    }
+                }
+                finally
+                {
+                    progress.Report(processed * 100.0 / items.Count);
+                }
+            }
+        }
+        finally
+        {
+            _stateStore.Flush();
+        }
+
+        _logger.LogInformation(
+            "ČSFD refresh finished: {Updated} of {Count} items updated, {Skipped} skipped as fresh",
+            updated,
+            items.Count,
+            skipped);
     }
 }

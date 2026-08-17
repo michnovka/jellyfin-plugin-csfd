@@ -1,0 +1,56 @@
+name: Release
+
+# Push a tag like v0.2.0.0 to build THAT commit, publish the GitHub release,
+# and then update manifest.json on main (the URL Jellyfin servers poll).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Default checkout of a tag push is the tagged commit — build exactly that.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Validate tag
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag must be vN.N.N.N"; exit 1; }
+      - name: Build and package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet build src/Jellyfin.Plugin.Csfd -c Release "-p:AssemblyVersion=${VERSION}" "-p:FileVersion=${VERSION}"
+          python3 scripts/package.py "$VERSION" "Release ${VERSION}"
+      # Release (with the zip) is created BEFORE the manifest advertises it, so
+      # a failed release never leaves clients pointing at a 404.
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "v${VERSION}" "dist/csfd-rating_${VERSION}.zip" \
+            --title "v${VERSION}" --notes "Release ${VERSION}"
+      - name: Commit manifest to main
+        run: |
+          cp manifest.json /tmp/manifest.json
+          git fetch origin main
+          git switch -f main
+          cp /tmp/manifest.json manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git diff --cached --quiet || git commit -m "Release ${GITHUB_REF_NAME#v}"
+          git push origin main
+      - name: Attach manifest to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" manifest.json

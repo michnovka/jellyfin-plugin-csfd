@@ -1,4 +1,5 @@
 using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
@@ -12,7 +13,7 @@ public class CsfdExternalId : IExternalId
 
     public string Key => "Csfd";
 
-    public ExternalIdMediaType? Type => ExternalIdMediaType.Movie;
+    public ExternalIdMediaType? Type => null;
 
-    public bool Supports(IHasProviderIds item) => item is Movie;
+    public bool Supports(IHasProviderIds item) => item is Movie or Series;
 }

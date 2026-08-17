@@ -12,4 +12,10 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Minimum delay between requests to csfd.cz, in milliseconds.</summary>
     public int RequestDelayMs { get; set; } = 1500;
+
+    /// <summary>Ignore ČSFD ratings based on fewer votes than this.</summary>
+    public int MinimumVotes { get; set; } = 100;
+
+    /// <summary>The scheduled task skips items whose rating was fetched within this many days.</summary>
+    public int RefreshIntervalDays { get; set; } = 30;
 }
