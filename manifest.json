@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "0.2.0.0",
+        "changelog": "Series support (ČSFD seriály), unmatched-items report in settings, minimum-votes threshold (default 100), staleness-aware monthly refresh task, improved matching (exact-title priority, film-page verification for all matches), Anubis cookie persistence, HTTP hardening (pinned redirects, response caps, backoff)",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/michnovka/jellyfin-plugin-csfd/releases/download/v0.2.0.0/csfd-rating_0.2.0.0.zip",
+        "checksum": "b840b312322481a16915bfe12f548f67",
+        "timestamp": "2026-08-17T23:48:13Z"
+      },
+      {
         "version": "0.1.1.0",
         "changelog": "Better matching: film-page verification pass (handles ČSFD omitting original-name on exact search hits), superscript/fraction title normalization, per-title logging in the backfill task",
         "targetAbi": "10.11.0.0",
