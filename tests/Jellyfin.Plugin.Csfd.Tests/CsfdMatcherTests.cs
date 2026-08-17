@@ -159,6 +159,24 @@ public class CsfdMatcherTests
         Assert.Equal("1-otec", CsfdMatcher.FindBestMatch(candidates, ["Father"], 2020)?.Id);
     }
 
+    [Fact]
+    public void Prefers_Candidate_Matching_More_Of_The_Items_Titles()
+    {
+        // Realistic localized case: the item is known as "Otec" / "The Father".
+        // Both ČSFD candidates share the Czech title "Otec" (both exact), so the
+        // one whose original name ALSO matches must win regardless of order.
+        var candidates = new[]
+        {
+            Film("1-otec", "Otec", 2020, originalName: "Father"),
+            Film("2-otec", "Otec", 2020, originalName: "The Father"),
+        };
+
+        Assert.Equal("2-otec", CsfdMatcher.FindBestMatch(candidates, ["Otec", "The Father"], 2020)?.Id);
+        Assert.Equal(
+            "1-otec",
+            CsfdMatcher.FindBestMatch(candidates.Reverse().ToArray(), ["Otec", "Father"], 2020)?.Id);
+    }
+
     [Theory]
     [InlineData("Pelíšky", "pelisky")]
     [InlineData("The Shawshank Redemption", "the shawshank redemption")]

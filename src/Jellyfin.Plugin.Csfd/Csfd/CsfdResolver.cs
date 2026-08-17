@@ -93,8 +93,10 @@ public sealed class CsfdResolver
                 continue;
             }
 
+            // The film page's own names must confirm the match even for strict
+            // search hits — a listing/page disagreement means we picked wrong.
             var nameVerified = details.Names.Any(n => normalizedTitles.Contains(CsfdMatcher.NormalizeAggressive(n)));
-            if (strict || nameVerified)
+            if (nameVerified)
             {
                 _logger.LogInformation(
                     strict

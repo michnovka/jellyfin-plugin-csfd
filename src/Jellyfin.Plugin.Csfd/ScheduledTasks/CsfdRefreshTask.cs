@@ -90,7 +90,7 @@ public class CsfdRefreshTask : IScheduledTask
                         continue;
                     }
 
-                    var result = await _updater.UpdateItemAsync(item, item is Series, config, recordStateImmediately: false, cancellationToken).ConfigureAwait(false);
+                    var result = await _updater.UpdateItemAsync(item, item is Series, config, cancellationToken).ConfigureAwait(false);
                     if (result.Changed)
                     {
                         await item.UpdateToRepositoryAsync(ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);

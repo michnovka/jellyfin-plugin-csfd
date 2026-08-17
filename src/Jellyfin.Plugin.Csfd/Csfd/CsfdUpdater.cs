@@ -5,8 +5,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Csfd.Csfd;
 
-/// <summary>Outcome of one update attempt. RatingFetched means the film page was
-/// successfully read this round (whether or not the item changed).</summary>
+/// <summary>Outcome of one update attempt. RatingFetched means an actual rating
+/// percentage was obtained this round — a page without one (unrated film, or a
+/// parse regression) is never considered fresh, so it gets retried.</summary>
 public sealed record CsfdUpdateResult(bool Changed, bool RatingFetched);
 
 /// <summary>
@@ -18,23 +19,21 @@ public sealed class CsfdUpdater
 {
     private readonly CsfdClient _client;
     private readonly CsfdResolver _resolver;
-    private readonly CsfdStateStore _stateStore;
     private readonly ILogger<CsfdUpdater> _logger;
 
-    public CsfdUpdater(CsfdClient client, CsfdResolver resolver, CsfdStateStore stateStore, ILogger<CsfdUpdater> logger)
+    public CsfdUpdater(CsfdClient client, CsfdResolver resolver, ILogger<CsfdUpdater> logger)
     {
         _client = client;
         _resolver = resolver;
-        _stateStore = stateStore;
         _logger = logger;
     }
 
     /// <summary>
-    /// Resolves and applies the ČSFD rating. With <paramref name="recordStateImmediately"/>
-    /// the fetch timestamp is stored here; the scheduled task passes false and records
-    /// it only after the item was successfully persisted.
+    /// Resolves and applies the ČSFD rating. Freshness bookkeeping is the caller's
+    /// job (the scheduled task records it only after the item is persisted; the
+    /// metadata providers don't record it at all, so the task re-checks new items).
     /// </summary>
-    public async Task<CsfdUpdateResult> UpdateItemAsync(BaseItem item, bool series, PluginConfiguration config, bool recordStateImmediately, CancellationToken cancellationToken)
+    public async Task<CsfdUpdateResult> UpdateItemAsync(BaseItem item, bool series, PluginConfiguration config, CancellationToken cancellationToken)
     {
         var changed = false;
         int? percent;
@@ -93,11 +92,6 @@ public sealed class CsfdUpdater
             }
         }
 
-        if (recordStateImmediately)
-        {
-            _stateStore.SetFetchedAt(item.Id, DateTimeOffset.UtcNow);
-        }
-
-        return new CsfdUpdateResult(changed, true);
+        return new CsfdUpdateResult(changed, percent.HasValue);
     }
 }

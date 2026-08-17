@@ -29,7 +29,7 @@ public class CsfdSeriesProvider : ICustomMetadataProvider<Series>, IHasOrder
             return ItemUpdateType.None;
         }
 
-        var result = await _updater.UpdateItemAsync(item, series: true, config, recordStateImmediately: true, cancellationToken).ConfigureAwait(false);
+        var result = await _updater.UpdateItemAsync(item, series: true, config, cancellationToken).ConfigureAwait(false);
         return result.Changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None;
     }
 }

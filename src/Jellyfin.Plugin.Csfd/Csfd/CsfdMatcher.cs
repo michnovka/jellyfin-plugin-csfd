@@ -28,15 +28,18 @@ public static class CsfdMatcher
 
             // Title match is mandatory; a year match alone is not evidence enough.
             // An exact-normalized match strongly outranks the article/conjunction-
-            // tolerant one, so "The Father" (2020) beats "Father" (2020).
-            var exact = candidateNames.Any(n => exactTitles.Contains(Normalize(n)));
-            var loose = exact || candidateNames.Any(n => looseTitles.Contains(NormalizeAggressive(n)));
+            // tolerant one, and matching MORE of the item's titles (localized AND
+            // original) outranks matching fewer — so for an item known as
+            // "Otec" / "The Father", the candidate whose original is "The Father"
+            // beats the same-year candidate whose original is "Father".
+            var exactCount = exactTitles.Count(t => candidateNames.Any(n => Normalize(n) == t));
+            var loose = exactCount > 0 || candidateNames.Any(n => looseTitles.Contains(NormalizeAggressive(n)));
             if (!loose)
             {
                 continue;
             }
 
-            var score = exact ? 4 : 1;
+            var score = exactCount > 0 ? 3 + exactCount : 1;
             if (year.HasValue && candidate.Year.HasValue)
             {
                 var diff = Math.Abs(year.Value - candidate.Year.Value);

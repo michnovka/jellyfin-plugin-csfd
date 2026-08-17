@@ -32,7 +32,7 @@ public class CsfdMovieProvider : ICustomMetadataProvider<Movie>, IHasOrder
             return ItemUpdateType.None;
         }
 
-        var result = await _updater.UpdateItemAsync(item, series: false, config, recordStateImmediately: true, cancellationToken).ConfigureAwait(false);
+        var result = await _updater.UpdateItemAsync(item, series: false, config, cancellationToken).ConfigureAwait(false);
         return result.Changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None;
     }
 }
