@@ -68,6 +68,12 @@ public sealed partial class CsfdClient : IDisposable
     private static partial Regex JsonLdRegex();
 
     public CsfdClient(IApplicationPaths applicationPaths, ILogger<CsfdClient> logger)
+        : this(applicationPaths, logger, null)
+    {
+    }
+
+    /// <summary>Test hook: inject a fake message handler and skip real delays.</summary>
+    internal CsfdClient(IApplicationPaths applicationPaths, ILogger<CsfdClient> logger, HttpMessageHandler? handler)
     {
         _logger = logger;
         _cookieFile = Path.Combine(applicationPaths.DataPath, "csfd-anubis-cookies.json");
@@ -76,7 +82,7 @@ public sealed partial class CsfdClient : IDisposable
 
         // Redirects are followed manually so they can be pinned to csfd.cz over
         // HTTPS — the server must not be able to point Jellyfin at internal hosts.
-        var handler = new HttpClientHandler
+        handler ??= new HttpClientHandler
         {
             CookieContainer = _cookies,
             AllowAutoRedirect = false,
@@ -87,6 +93,9 @@ public sealed partial class CsfdClient : IDisposable
         _httpClient.DefaultRequestHeaders.Add("Accept-Language", "cs,sk;q=0.9,en;q=0.8");
         _httpClient.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml");
     }
+
+    /// <summary>Delay between requests when no plugin configuration exists (tests set 0).</summary>
+    internal int FallbackDelayMs { get; set; } = 1500;
 
     public async Task<IReadOnlyList<CsfdSearchResult>> SearchAsync(string query, CancellationToken cancellationToken)
     {
@@ -136,10 +145,13 @@ public sealed partial class CsfdClient : IDisposable
 
             var yearMatch = YearRegex().Match(context);
             var nameMatch = SearchNameRegex().Match(context);
-            var isSeries = context.Contains("seriál)", StringComparison.Ordinal);
-            var isFilm = !isSeries
-                && !context.Contains("(pořad)", StringComparison.Ordinal)
-                && !context.Contains("(epizoda)", StringComparison.Ordinal);
+
+            // ČSFD types panel/talk shows "(pořad)"; Jellyfin models those as
+            // Series too, so they are series-eligible (their film pages carry
+            // @type TVSeries, which the resolver's page gate still verifies).
+            var isShow = context.Contains("(pořad)", StringComparison.Ordinal);
+            var isSeries = context.Contains("seriál)", StringComparison.Ordinal) || isShow;
+            var isFilm = !isSeries && !context.Contains("(epizoda)", StringComparison.Ordinal);
 
             results.Add(new CsfdSearchResult(
                 match.Groups["id"].Value,
@@ -266,7 +278,9 @@ public sealed partial class CsfdClient : IDisposable
                 return null;
             }
 
-            var delayMs = Math.Clamp(Plugin.Instance?.Configuration.RequestDelayMs ?? 1500, 250, 60_000);
+            var delayMs = Plugin.Instance is { } plugin
+                ? Math.Clamp(plugin.Configuration.RequestDelayMs, 250, 60_000)
+                : FallbackDelayMs;
             var wait = _lastRequest + TimeSpan.FromMilliseconds(delayMs) - DateTimeOffset.UtcNow;
             if (wait > TimeSpan.Zero)
             {

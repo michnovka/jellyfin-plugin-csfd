@@ -21,6 +21,7 @@ NAME = "ČSFD Rating"
 DESCRIPTION = "Fetches movie and series ratings from ČSFD and stores them in the native critic rating field."
 OVERVIEW = "ČSFD ratings as native critic rating"
 OWNER = "michnovka"
+IMAGE_URL = "https://raw.githubusercontent.com/michnovka/jellyfin-plugin-csfd/main/assets/icon.png"
 
 def main() -> None:
     version, changelog = sys.argv[1], sys.argv[2]
@@ -68,9 +69,10 @@ def main() -> None:
             "overview": OVERVIEW,
             "owner": OWNER,
             "category": "Metadata",
-            "imageUrl": "",
+            "imageUrl": IMAGE_URL,
             "versions": [],
         }]
+    manifest[0]["imageUrl"] = IMAGE_URL
 
     entry = {
         "version": version,

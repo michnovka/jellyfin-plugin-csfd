@@ -46,6 +46,29 @@
                 </form>
 
                 <div class="verticalSection" style="margin-top: 2em;">
+                    <h2 class="sectionTitle">Test a match</h2>
+                    <div class="fieldDescription">Dry-run the matcher: see which ČSFD entry a title + year would resolve to, without touching your library.</div>
+                    <div class="inputContainer" style="margin-top: 1em;">
+                        <label class="inputLabel inputLabelUnfocused" for="TestTitle">Title</label>
+                        <input id="TestTitle" type="text" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TestYear">Year (optional)</label>
+                        <input id="TestYear" type="number" is="emby-input" min="1900" max="2100" />
+                    </div>
+                    <div class="checkboxContainer">
+                        <label class="emby-checkbox-label">
+                            <input id="TestSeries" type="checkbox" is="emby-checkbox" />
+                            <span>Series</span>
+                        </label>
+                    </div>
+                    <button is="emby-button" type="button" id="CsfdTestMatch" class="raised block emby-button" style="margin: 1em 0;">
+                        <span>Test match</span>
+                    </button>
+                    <div id="CsfdTestMatchResult"></div>
+                </div>
+
+                <div class="verticalSection" style="margin-top: 2em;">
                     <h2 class="sectionTitle">Unmatched items</h2>
                     <div class="fieldDescription">
                         Movies and series without a ČSFD id. Use the search link to find the right film,
@@ -93,6 +116,41 @@
 
                     e.preventDefault();
                     return false;
+                });
+
+            document.querySelector('#CsfdTestMatch')
+                .addEventListener('click', function () {
+                    var target = document.querySelector('#CsfdTestMatchResult');
+                    var title = document.querySelector('#TestTitle').value.trim();
+                    if (!title) {
+                        target.textContent = 'Enter a title first.';
+                        return;
+                    }
+                    target.textContent = 'Matching… (queries csfd.cz, takes a few seconds)';
+                    var params = { title: title, series: document.querySelector('#TestSeries').checked };
+                    var year = document.querySelector('#TestYear').value;
+                    if (year) params.year = year;
+                    ApiClient.getJSON(ApiClient.getUrl('Plugins/Csfd/TestMatch', params)).then(function (r) {
+                        if (!r.Matched) {
+                            target.textContent = 'No match found.';
+                            return;
+                        }
+                        target.innerHTML = '';
+                        var link = document.createElement('a');
+                        link.setAttribute('is', 'emby-linkbutton');
+                        link.className = 'button-link';
+                        link.href = r.Url;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.textContent = r.CsfdId;
+                        target.appendChild(document.createTextNode('Matched: '));
+                        target.appendChild(link);
+                        target.appendChild(document.createTextNode(
+                            ' — ' + (r.Percent != null ? r.Percent + ' %' : 'unrated')
+                            + (r.Votes != null ? ' (' + r.Votes + ' votes)' : '')));
+                    }, function () {
+                        target.textContent = 'Request failed (admin permissions required).';
+                    });
                 });
 
             document.querySelector('#CsfdLoadUnmatched')

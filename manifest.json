@@ -6,7 +6,7 @@
     "overview": "ČSFD ratings as native critic rating",
     "owner": "michnovka",
     "category": "Metadata",
-    "imageUrl": "",
+    "imageUrl": "https://raw.githubusercontent.com/michnovka/jellyfin-plugin-csfd/main/assets/icon.png",
     "versions": [
       {
         "version": "0.2.0.0",

@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: nuget
+    directory: "/src/Jellyfin.Plugin.Csfd"
+    schedule:
+      interval: weekly
+  - package-ecosystem: nuget
+    directory: "/tests/Jellyfin.Plugin.Csfd.Tests"
+    schedule:
+      interval: weekly

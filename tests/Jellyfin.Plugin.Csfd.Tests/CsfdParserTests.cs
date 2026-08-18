@@ -24,10 +24,12 @@ public class CsfdParserTests
         Assert.True(pelisky.IsFilm);
         Assert.False(pelisky.IsSeries);
 
-        // "Pelíšky slavných (pořad)" must not be classified as a film.
+        // "Pelíšky slavných (pořad)" must not be a film, but IS series-eligible
+        // (ČSFD types panel/talk shows as pořad).
         var porad = results.FirstOrDefault(r => r.Id.StartsWith("267763", StringComparison.Ordinal));
         Assert.NotNull(porad);
         Assert.False(porad.IsFilm);
+        Assert.True(porad.IsSeries);
     }
 
     [Fact]
