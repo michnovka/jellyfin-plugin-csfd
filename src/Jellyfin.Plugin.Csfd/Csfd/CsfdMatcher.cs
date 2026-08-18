@@ -42,7 +42,7 @@ public static class CsfdMatcher
             var score = exactCount > 0 ? 3 + exactCount : 1;
             if (year.HasValue && candidate.Year.HasValue)
             {
-                var diff = Math.Abs(year.Value - candidate.Year.Value);
+                var diff = Math.Abs((long)year.Value - candidate.Year.Value);
                 if (diff > 1)
                 {
                     continue; // same title, wrong year (remakes) is disqualifying

@@ -5,6 +5,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Csfd.Api;
@@ -31,6 +32,10 @@ public class CsfdController : ControllerBase
         _resolver = resolver;
     }
 
+    // One dry-run at a time: each preview costs several live csfd.cz requests
+    // and would otherwise queue behind the rate limiter indefinitely.
+    private static readonly SemaphoreSlim TestMatchGate = new(1, 1);
+
     /// <summary>Dry-runs the matcher for a title/year without touching any item.</summary>
     [HttpGet("TestMatch")]
     [Authorize(Policy = "RequiresElevation")]
@@ -41,15 +46,38 @@ public class CsfdController : ControllerBase
         [FromQuery] bool series,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(title))
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200 || originalTitle?.Length > 200)
         {
-            return BadRequest("title is required");
+            return BadRequest("title is required (max 200 characters)");
         }
 
-        var resolution = await _resolver.ResolveAsync(title, originalTitle, year, series, cancellationToken).ConfigureAwait(false);
-        return resolution is null
-            ? new TestMatchResultDto(false, null, null, null, null)
-            : new TestMatchResultDto(true, resolution.Id, resolution.Percent, resolution.Votes, $"https://www.csfd.cz/film/{resolution.Id}/prehled/");
+        if (year is < 1850 or > 2130)
+        {
+            return BadRequest("implausible year");
+        }
+
+        if (!await TestMatchGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, "a match preview is already running");
+        }
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(90));
+            var resolution = await _resolver.ResolveAsync(title, originalTitle, year, series, timeout.Token).ConfigureAwait(false);
+            return resolution is null
+                ? new TestMatchResultDto(false, null, null, null, null)
+                : new TestMatchResultDto(true, resolution.Id, resolution.Percent, resolution.Votes, $"https://www.csfd.cz/film/{resolution.Id}/prehled/");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, "match preview timed out");
+        }
+        finally
+        {
+            TestMatchGate.Release();
+        }
     }
 
     /// <summary>Movies and series that have no ČSFD id yet.</summary>

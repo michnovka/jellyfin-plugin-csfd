@@ -17,6 +17,14 @@ if [[ -n "$(git status --porcelain)" ]]; then
     exit 1
 fi
 
+# The workflow updates manifest.json on origin/main — releasing an unpushed
+# commit would publish source that main doesn't have.
+git fetch origin main
+if [[ "$(git rev-parse HEAD)" != "$(git rev-parse FETCH_HEAD)" ]]; then
+    echo "HEAD must match origin/main (push first)" >&2
+    exit 1
+fi
+
 # Don't tag broken code.
 dotnet build src/Jellyfin.Plugin.Csfd -c Release "-p:AssemblyVersion=${VERSION}" "-p:FileVersion=${VERSION}"
 dotnet test tests/Jellyfin.Plugin.Csfd.Tests

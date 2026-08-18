@@ -28,8 +28,14 @@ jobs:
       - name: Build and package
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          NOTES="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
           dotnet build src/Jellyfin.Plugin.Csfd -c Release "-p:AssemblyVersion=${VERSION}" "-p:FileVersion=${VERSION}"
-          python3 scripts/package.py "$VERSION" "Release ${VERSION}"
+          # Merge the new version entry into the CURRENT main manifest, not the
+          # tag-era snapshot — otherwise rerunning an old tag would erase newer
+          # version entries.
+          git fetch origin main
+          git show FETCH_HEAD:manifest.json > manifest.json || true
+          python3 scripts/package.py "$VERSION" "${NOTES:-Release ${VERSION}}"
       # Release (with the zip) is created BEFORE the manifest advertises it, so
       # a failed release never leaves clients pointing at a 404.
       - name: Create GitHub release

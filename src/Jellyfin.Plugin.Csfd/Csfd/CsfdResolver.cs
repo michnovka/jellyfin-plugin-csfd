@@ -61,7 +61,7 @@ public sealed class CsfdResolver
             if (year.HasValue)
             {
                 foreach (var c in results.Where(c => (series ? c.IsSeries : c.IsFilm)
-                             && c.Year.HasValue && Math.Abs(c.Year.Value - year.Value) <= 1))
+                             && c.Year.HasValue && Math.Abs((long)c.Year.Value - year.Value) <= 1))
                 {
                     if (!candidates.Any(x => x.Result.Id == c.Id))
                     {
@@ -88,7 +88,7 @@ public sealed class CsfdResolver
             }
 
             // The film page's own year outranks the search-context guess.
-            if (year.HasValue && details.Year.HasValue && Math.Abs(details.Year.Value - year.Value) > 1)
+            if (year.HasValue && details.Year.HasValue && Math.Abs((long)details.Year.Value - year.Value) > 1)
             {
                 continue;
             }

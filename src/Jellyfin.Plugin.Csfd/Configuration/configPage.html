@@ -120,17 +120,20 @@
 
             document.querySelector('#CsfdTestMatch')
                 .addEventListener('click', function () {
+                    var button = document.querySelector('#CsfdTestMatch');
                     var target = document.querySelector('#CsfdTestMatchResult');
                     var title = document.querySelector('#TestTitle').value.trim();
                     if (!title) {
                         target.textContent = 'Enter a title first.';
                         return;
                     }
+                    button.disabled = true;
                     target.textContent = 'Matching… (queries csfd.cz, takes a few seconds)';
                     var params = { title: title, series: document.querySelector('#TestSeries').checked };
                     var year = document.querySelector('#TestYear').value;
                     if (year) params.year = year;
                     ApiClient.getJSON(ApiClient.getUrl('Plugins/Csfd/TestMatch', params)).then(function (r) {
+                        button.disabled = false;
                         if (!r.Matched) {
                             target.textContent = 'No match found.';
                             return;
@@ -149,7 +152,8 @@
                             ' — ' + (r.Percent != null ? r.Percent + ' %' : 'unrated')
                             + (r.Votes != null ? ' (' + r.Votes + ' votes)' : '')));
                     }, function () {
-                        target.textContent = 'Request failed (admin permissions required).';
+                        button.disabled = false;
+                        target.textContent = 'Request failed (admin permissions required, one preview at a time).';
                     });
                 });
 
