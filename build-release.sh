@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# Build a plugin release and publish it as a GitHub release, updating
-# manifest.json so Jellyfin servers can install/update via the repository URL:
-#   https://github.com/michnovka/jellyfin-plugin-csfd/releases/latest/download/manifest.json
+# Cut a release: verify, tag the current commit and push the tag.
+# The Release GitHub Actions workflow then builds the tagged commit, publishes
+# the release zip and updates manifest.json on main — do NOT create the GitHub
+# release locally, that would collide with the workflow.
 #
 # Usage: ./build-release.sh <version> [changelog]
-#   e.g. ./build-release.sh 0.2.0.0 "Series support"
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VERSION=${1:?usage: ./build-release.sh <version, e.g. 0.2.0.0> [changelog]}
+VERSION=${1:?usage: ./build-release.sh <version, e.g. 0.2.1.0> [changelog]}
 CHANGELOG=${2:-"Release $VERSION"}
-REPO="michnovka/jellyfin-plugin-csfd"
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version must be N.N.N.N" >&2; exit 1; }
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -18,14 +17,10 @@ if [[ -n "$(git status --porcelain)" ]]; then
     exit 1
 fi
 
+# Don't tag broken code.
 dotnet build src/Jellyfin.Plugin.Csfd -c Release "-p:AssemblyVersion=${VERSION}" "-p:FileVersion=${VERSION}"
-python3 scripts/package.py "$VERSION" "$CHANGELOG"
+dotnet test tests/Jellyfin.Plugin.Csfd.Tests
 
-# Release (with the zip) is created before the manifest advertises it.
-gh release create "v${VERSION}" "dist/csfd-rating_${VERSION}.zip" --repo "$REPO" --title "v${VERSION}" --notes "$CHANGELOG"
-
-git add manifest.json
-git commit -m "Release ${VERSION}" >/dev/null
-git push
-gh release upload "v${VERSION}" manifest.json --repo "$REPO"
-echo "Released v${VERSION}"
+git tag -a "v${VERSION}" -m "$CHANGELOG"
+git push origin "v${VERSION}"
+echo "Tag v${VERSION} pushed — the Release workflow publishes it (watch: gh run watch)"
