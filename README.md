@@ -23,14 +23,17 @@ Clients render critic rating with a rotten-tomatoes icon (fresh ≥ 60). To show
 the ČSFD look in the web client instead, add Custom CSS in Dashboard → General:
 
 ```css
-.mediaInfoCriticRatingFresh,
-.mediaInfoCriticRatingRotten {
+/* ČSFD logo only for items matched on ČSFD (detected via the ČSFD external
+   link the plugin adds); unmatched items keep the Rotten Tomatoes icons. */
+.itemDetailPage:has(.itemExternalLinks a[href*="csfd.cz"]) .mediaInfoCriticRatingFresh,
+.itemDetailPage:has(.itemExternalLinks a[href*="csfd.cz"]) .mediaInfoCriticRatingRotten {
     background-image: url('https://static.pmgstatic.com/assets/images/c81c12476e7c622b1c771cd9187a56e2/apple-touch-icon.png');
 }
 ```
 
-More robust: download that PNG and embed it as a `data:image/png;base64,...`
-URI so the icon doesn't depend on hotlinking csfd.cz's CDN.
+Drop the `:has(...)` prefixes to show the ČSFD logo unconditionally. More
+robust: download that PNG and embed it as a `data:image/png;base64,...` URI so
+the icon doesn't depend on hotlinking csfd.cz's CDN.
 
 ## Development
 
