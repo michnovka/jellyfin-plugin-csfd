@@ -1,0 +1,1 @@
+{"StartTimeUtc":"2026-09-07T20:00:25.4464264Z","EndTimeUtc":"2026-09-07T20:00:26.1377118Z","Status":"Completed","Name":"Refresh \u010CSFD ratings","Key":"CsfdRefreshRatings","Id":"aea02af5ef4d2bb7d53ddf3851748fe8"}

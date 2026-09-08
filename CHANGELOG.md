@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0.0
+
+- **Jellyfin 12.0 support** (targets net10.0 and the 12.0 server assemblies). Requires Jellyfin 12.0; 10.11 servers keep resolving 0.3.0.0 from the same repository URL.
+- No functional changes; plugin API surface used here was unaffected by the 12.0 rewrite.
+
 ## 0.3.0.0
 
 - ČSFD "pořad"-typed entries (panel/talk shows) are now series-eligible, recovering shows like The Graham Norton Show.

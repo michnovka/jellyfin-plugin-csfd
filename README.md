@@ -18,7 +18,8 @@ the ČSFD id as an external id, adding a clickable ČSFD link on detail pages.
 2. Install **ČSFD Rating** from the catalog and restart Jellyfin.
 3. Run the **Refresh ČSFD ratings** scheduled task once to backfill your library.
 
-Requires Jellyfin 10.11.
+Requires **Jellyfin 12.0** (plugin 1.0.0.0+). Servers on 10.11 resolve the
+last compatible build (0.3.0.0) from the same repository URL automatically.
 
 ## Features
 

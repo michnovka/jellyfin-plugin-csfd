@@ -2,7 +2,7 @@
 """Package a built plugin into a release zip and update manifest.json.
 
 Usage: package.py <version> <changelog>
-Expects the plugin already built at src/.../bin/Release/net9.0/.
+Expects the plugin already built at src/.../bin/Release/net10.0/.
 Writes dist/csfd-rating_<version>.zip and updates manifest.json in place.
 Prints the zip's MD5 checksum.
 """
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 GUID = "af0c9c45-a8e5-498a-b848-3963aade7e6e"
-TARGET_ABI = "10.11.0.0"
+TARGET_ABI = "12.0.0.0"
 REPO = "michnovka/jellyfin-plugin-csfd"
 NAME = "ČSFD Rating"
 DESCRIPTION = "Fetches movie and series ratings from ČSFD and stores them in the native critic rating field."
@@ -28,7 +28,7 @@ def main() -> None:
     if not re.fullmatch(r"\d+\.\d+\.\d+\.\d+", version):
         sys.exit("version must be N.N.N.N")
     root = Path(__file__).resolve().parent.parent
-    dll = root / "src/Jellyfin.Plugin.Csfd/bin/Release/net9.0/Jellyfin.Plugin.Csfd.dll"
+    dll = root / "src/Jellyfin.Plugin.Csfd/bin/Release/net10.0/Jellyfin.Plugin.Csfd.dll"
     if not dll.exists():
         sys.exit(f"missing {dll}; build first")
 

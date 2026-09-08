@@ -7,7 +7,7 @@ dotnet build src/Jellyfin.Plugin.Csfd -c Debug
 
 PLUGIN_DIR=dev/config/plugins/CsfdRating
 mkdir -p "$PLUGIN_DIR"
-cp src/Jellyfin.Plugin.Csfd/bin/Debug/net9.0/Jellyfin.Plugin.Csfd.dll "$PLUGIN_DIR/"
+cp src/Jellyfin.Plugin.Csfd/bin/Debug/net10.0/Jellyfin.Plugin.Csfd.dll "$PLUGIN_DIR/"
 
 docker compose -f docker-compose.dev.yml up -d
 docker restart jellyfin-csfd-dev >/dev/null

@@ -1,0 +1,15 @@
+{
+  "category": "",
+  "changelog": "",
+  "description": "",
+  "guid": "af0c9c45-a8e5-498a-b848-3963aade7e6e",
+  "name": "\u010CSFD Rating",
+  "overview": "",
+  "owner": "",
+  "targetAbi": "10.11.11.0",
+  "timestamp": "0001-01-01T00:00:00.0000000Z",
+  "version": "0.1.0.0",
+  "status": "Active",
+  "autoUpdate": false,
+  "assemblies": []
+}

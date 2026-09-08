@@ -4,3 +4,4 @@ dev/
 *.user
 .vs/
 dist/
+.agentmux/
